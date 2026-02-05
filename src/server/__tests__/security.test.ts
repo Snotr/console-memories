@@ -1,8 +1,14 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { Elysia } from "elysia";
 
-// Set test database before importing routes
+// Set test environment before importing routes
 process.env.DATABASE_PATH = ":memory:";
+process.env.AUTH_TOKEN = "test-token";
+
+const authHeaders = {
+  "Content-Type": "application/json",
+  Authorization: "Bearer test-token",
+};
 
 const { articleRoutes } = await import("../routes/articles.ts");
 const { runMigrations } = await import("../db/connection.ts");
@@ -18,7 +24,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Script",
           content: "# Hello\n\n<script>alert('XSS')</script>\n\nSafe text",
@@ -37,7 +43,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Img",
           content: '<img src="x" onerror="alert(1)">',
@@ -54,7 +60,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Click",
           content: '<button onclick="alert(1)">Click</button>',
@@ -71,7 +77,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Link",
           content: '[Click me](javascript:alert(1))',
@@ -87,7 +93,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Anchor",
           content: '<a href="javascript:alert(1)">Bad link</a>',
@@ -103,7 +109,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Iframe",
           content: '<iframe src="https://evil.com"></iframe>',
@@ -119,7 +125,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test Style",
           content: '<style>body { background: url("javascript:alert(1)") }</style>',
@@ -135,7 +141,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "XSS Test SVG",
           content: '<svg onload="alert(1)"></svg>',
@@ -151,7 +157,7 @@ describe("Security - XSS Prevention", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "Safe HTML Test",
           content: `# Heading
@@ -189,7 +195,7 @@ code block
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "Image Upload Test",
           content: '![My image](/uploads/test-image.jpg)',
@@ -205,7 +211,7 @@ code block
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "External Image Test",
           content: '![External](https://example.com/image.jpg)',
@@ -223,7 +229,7 @@ describe("Security - Input Validation", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "Title\x00with\x1Fcontrol\x7Fchars",
           content: "Content",
@@ -247,7 +253,7 @@ describe("Security - Input Validation", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: longTitle,
           content: "Content",
@@ -267,7 +273,7 @@ describe("Security - Input Validation", () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders,
         body: JSON.stringify({
           title: "  Trimmed Title  ",
           content: "Content",

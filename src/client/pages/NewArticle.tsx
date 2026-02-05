@@ -1,12 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Article } from "../../shared/types.ts";
+import { usePasteUpload } from "../hooks/usePasteUpload.ts";
 
-export function NewArticle() {
+interface NewArticleProps {
+  isAuthenticated?: boolean;
+}
+
+export function NewArticle({ isAuthenticated }: NewArticleProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [featured, setFeatured] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  usePasteUpload(textareaRef, content, setContent, {
+    onUploadStart: () => setUploading(true),
+    onUploadEnd: () => setUploading(false),
+    onError: (msg) => setError(msg),
+  });
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      window.history.pushState({}, "", "/login");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  }, [isAuthenticated]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +67,8 @@ export function NewArticle() {
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
+  if (isAuthenticated === false) return null;
+
   return (
     <main className="main">
       <div className="container">
@@ -79,6 +102,7 @@ export function NewArticle() {
             <div className="form-group">
               <label htmlFor="content" className="form-label">Content</label>
               <textarea
+                ref={textareaRef}
                 id="content"
                 className="form-textarea"
                 value={content}
@@ -88,7 +112,9 @@ export function NewArticle() {
                 rows={15}
               />
               <p className="form-hint">
-                Supports markdown: **bold**, *italic*, `code`, lists, headers, blockquotes
+                {uploading
+                  ? "Uploading media..."
+                  : "Supports markdown: **bold**, *italic*, `code`, lists, headers, blockquotes. Paste images to upload."}
               </p>
             </div>
 

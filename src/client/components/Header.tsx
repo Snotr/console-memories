@@ -3,13 +3,20 @@ import type { SocialLink } from "../../shared/types.ts";
 interface HeaderProps {
   socials?: SocialLink[];
   currentPath: string;
+  isAuthenticated?: boolean;
+  onLogout?: () => void;
 }
 
-export function Header({ socials = [], currentPath }: HeaderProps) {
+export function Header({ socials = [], currentPath, isAuthenticated, onLogout }: HeaderProps) {
   const isActive = (path: string) => {
     if (path === "/" && currentPath === "/") return true;
     if (path !== "/" && currentPath.startsWith(path)) return true;
     return false;
+  };
+
+  const handleLogout = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onLogout?.();
   };
 
   return (
@@ -43,6 +50,22 @@ export function Header({ socials = [], currentPath }: HeaderProps) {
               {social.name.toLowerCase()}
             </a>
           ))}
+          {isAuthenticated ? (
+            <a
+              href="#"
+              className="header__link"
+              onClick={handleLogout}
+            >
+              logout
+            </a>
+          ) : (
+            <a
+              href="/login"
+              className={`header__link ${isActive("/login") ? "header__link--active" : ""}`}
+            >
+              login
+            </a>
+          )}
         </nav>
       </div>
     </header>

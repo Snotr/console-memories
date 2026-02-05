@@ -4,6 +4,19 @@ import DOMPurify from "isomorphic-dompurify";
 import type { Article, Reactions } from "../../shared/types.ts";
 import { config } from "../../config.ts";
 import { articlesRepository } from "../db/articles.repository.ts";
+import { reactionsRepository } from "../db/reactions.repository.ts";
+import { requireAuth } from "../middleware/auth.ts";
+
+// Helper: Extract cm_visitor cookie value
+function getVisitorId(request: Request): string | null {
+  const cookies = request.headers.get("cookie");
+  if (!cookies) return null;
+  for (const part of cookies.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === "cm_visitor") return rest.join("=");
+  }
+  return null;
+}
 
 // Configure marked
 marked.setOptions({
@@ -108,7 +121,10 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
   // POST /api/articles - Create new article
   .post(
     "/",
-    ({ body, set }) => {
+    ({ body, request, set }) => {
+      const authError = requireAuth(request, set);
+      if (authError) return authError;
+
       const title = validateText(body.title, MAX_TITLE_LENGTH);
       const content = validateText(body.content, MAX_CONTENT_LENGTH);
 
@@ -149,7 +165,10 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
   // PUT /api/articles/:id - Update article by ID
   .put(
     "/:id",
-    ({ params, body, set }) => {
+    ({ params, body, request, set }) => {
+      const authError = requireAuth(request, set);
+      if (authError) return authError;
+
       const existing = articlesRepository.getById(params.id);
       if (!existing) {
         set.status = 404;
@@ -195,7 +214,10 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
   )
 
   // DELETE /api/articles/:id - Delete article by ID
-  .delete("/:id", ({ params, set }) => {
+  .delete("/:id", ({ params, request, set }) => {
+    const authError = requireAuth(request, set);
+    if (authError) return authError;
+
     const deleted = articlesRepository.delete(params.id);
     if (!deleted) {
       set.status = 404;
@@ -205,14 +227,22 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
     return null;
   })
 
-  // POST /api/articles/:id/reactions - Add reaction
+  // POST /api/articles/:id/reactions - Add reaction (idempotent per visitor)
   .post(
     "/:id/reactions",
-    ({ params, body, set }) => {
+    ({ params, body, request, set }) => {
       const reaction = body.type as keyof Reactions;
       if (!["fire", "heart", "thinking", "clap"].includes(reaction)) {
         set.status = 400;
         return { error: "Invalid reaction type" };
+      }
+
+      const visitorId = getVisitorId(request);
+
+      // Check idempotency if visitor cookie exists
+      if (visitorId && reactionsRepository.hasReacted(visitorId, params.id, reaction)) {
+        const reactions = articlesRepository.getReactions(params.id);
+        return { reactions, alreadyReacted: true };
       }
 
       const reactions = articlesRepository.addReaction(params.id, reaction);
@@ -221,11 +251,26 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
         return { error: "Article not found" };
       }
 
-      return { reactions };
+      // Log the reaction for this visitor
+      if (visitorId) {
+        reactionsRepository.logReaction(visitorId, params.id, reaction);
+      }
+
+      return { reactions, alreadyReacted: false };
     },
     {
       body: t.Object({
         type: t.String(),
       }),
     }
-  );
+  )
+
+  // GET /api/articles/reactions/:articleId/me - Get visitor's reactions for article
+  .get("/reactions/:articleId/me", ({ params, request }) => {
+    const visitorId = getVisitorId(request);
+    if (!visitorId) {
+      return { reacted: [] };
+    }
+    const reacted = reactionsRepository.getVisitorReactions(visitorId, params.articleId);
+    return { reacted };
+  });

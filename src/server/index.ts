@@ -3,6 +3,7 @@ import { cors } from "@elysiajs/cors";
 import { articleRoutes } from "./routes/articles.ts";
 import { pageRoutes } from "./routes/pages.ts";
 import { mediaRoutes } from "./routes/media.ts";
+import { authRoutes } from "./routes/auth.ts";
 import { config, validateConfig } from "../config.ts";
 import { runMigrations } from "./db/connection.ts";
 import { mkdirSync } from "fs";
@@ -43,16 +44,27 @@ const corsConfig = config.cors.enabled
   : { origin: false, credentials: true };
 
 const api = new Elysia()
-  .onRequest(({ set }) => {
+  .onRequest(({ request, set }) => {
     // Apply security headers to all requests
     for (const [key, value] of Object.entries(securityHeaders)) {
       set.headers[key] = value;
+    }
+
+    // Ensure cm_visitor cookie exists for reaction idempotency
+    const cookies = request.headers.get("cookie") || "";
+    const hasVisitor = cookies.split(";").some((c) => c.trim().startsWith("cm_visitor="));
+    if (!hasVisitor) {
+      const visitorId = crypto.randomUUID();
+      const secure = config.isProd ? "; Secure" : "";
+      set.headers["Set-Cookie"] =
+        `cm_visitor=${visitorId}; Path=/; SameSite=Lax; Max-Age=63072000${secure}`;
     }
   })
   .use(cors(corsConfig))
   .use(articleRoutes)
   .use(pageRoutes)
-  .use(mediaRoutes);
+  .use(mediaRoutes)
+  .use(authRoutes);
 
 // Serve uploaded files statically
 const serveUploads = async (req: Request): Promise<Response | null> => {
@@ -83,6 +95,7 @@ Bun.serve({
     "/new": index,
     "/edit/*": index,
     "/article/*": index,
+    "/login": index,
   },
   fetch: async (req) => {
     // Check for uploads first

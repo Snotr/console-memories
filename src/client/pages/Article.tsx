@@ -3,14 +3,17 @@ import type { Article as ArticleType, Reactions } from "../../shared/types.ts";
 
 interface ArticleProps {
   slug: string;
+  isAuthenticated?: boolean;
 }
 
-export function Article({ slug }: ArticleProps) {
+export function Article({ slug, isAuthenticated }: ArticleProps) {
   const [article, setArticle] = useState<ArticleType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const [myReactions, setMyReactions] = useState<string[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -24,15 +27,23 @@ export function Article({ slug }: ArticleProps) {
       .then((data) => {
         setArticle(data);
         setLoading(false);
+        // Fetch visitor's reactions
+        return fetch(`/api/articles/reactions/${data.id}/me`);
+      })
+      .then((res) => res?.json() as Promise<{ reacted: string[] } | undefined>)
+      .then((data) => {
+        if (data?.reacted) setMyReactions(data.reacted);
       })
       .catch((err) => {
-        setError(err.message);
-        setLoading(false);
+        if (!article) {
+          setError(err.message);
+          setLoading(false);
+        }
       });
   }, [slug]);
 
   const handleReaction = async (reaction: keyof Reactions) => {
-    if (!article) return;
+    if (!article || myReactions.includes(reaction)) return;
 
     try {
       const res = await fetch(`/api/articles/${article.id}/reactions`, {
@@ -41,8 +52,11 @@ export function Article({ slug }: ArticleProps) {
         body: JSON.stringify({ type: reaction }),
       });
       if (res.ok) {
-        const data = await res.json() as { reactions: Reactions };
+        const data = await res.json() as { reactions: Reactions; alreadyReacted: boolean };
         setArticle((prev) => prev ? { ...prev, reactions: data.reactions } : null);
+        if (!data.alreadyReacted) {
+          setMyReactions((prev) => [...prev, reaction]);
+        }
       }
     } catch {
       // Silently fail
@@ -130,31 +144,33 @@ export function Article({ slug }: ArticleProps) {
               <a href="/" className="article__back">
                 ← back to posts
               </a>
-              <div className="article__actions">
-                <button
-                  type="button"
-                  className={`icon-btn ${article.featured ? "icon-btn--active" : ""}`}
-                  onClick={handleToggleFeatured}
-                  title={article.featured ? "Remove from featured" : "Mark as featured"}
-                >
-                  {article.featured ? "★" : "☆"}
-                </button>
-                <a
-                  href={`/edit/${article.slug}`}
-                  className="icon-btn"
-                  title="Edit article"
-                >
-                  ✎
-                </a>
-                <button
-                  type="button"
-                  className="icon-btn icon-btn--danger"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  title="Delete article"
-                >
-                  ×
-                </button>
-              </div>
+              {isAuthenticated && (
+                <div className="article__actions">
+                  <button
+                    type="button"
+                    className={`icon-btn ${article.featured ? "icon-btn--active" : ""}`}
+                    onClick={handleToggleFeatured}
+                    title={article.featured ? "Remove from featured" : "Mark as featured"}
+                  >
+                    {article.featured ? "★" : "☆"}
+                  </button>
+                  <a
+                    href={`/edit/${article.slug}`}
+                    className="icon-btn"
+                    title="Edit article"
+                  >
+                    ✎
+                  </a>
+                  <button
+                    type="button"
+                    className="icon-btn icon-btn--danger"
+                    onClick={() => setShowDeleteConfirm(true)}
+                    title="Delete article"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
             </div>
             {article.featured && (
               <span className="article__featured-badge">★ featured</span>
@@ -170,38 +186,22 @@ export function Article({ slug }: ArticleProps) {
 
           <footer className="article__footer">
             <div className="reactions">
-              <button
-                className="reaction-btn"
-                type="button"
-                onClick={() => handleReaction("fire")}
-              >
-                {"\u{1F525}"}
-                <span className="reaction-btn__count">{article.reactions.fire}</span>
-              </button>
-              <button
-                className="reaction-btn"
-                type="button"
-                onClick={() => handleReaction("heart")}
-              >
-                {"\u{2764}\u{FE0F}"}
-                <span className="reaction-btn__count">{article.reactions.heart}</span>
-              </button>
-              <button
-                className="reaction-btn"
-                type="button"
-                onClick={() => handleReaction("thinking")}
-              >
-                {"\u{1F914}"}
-                <span className="reaction-btn__count">{article.reactions.thinking}</span>
-              </button>
-              <button
-                className="reaction-btn"
-                type="button"
-                onClick={() => handleReaction("clap")}
-              >
-                {"\u{1F44F}"}
-                <span className="reaction-btn__count">{article.reactions.clap}</span>
-              </button>
+              {(["fire", "heart", "thinking", "clap"] as const).map((type) => {
+                const isReacted = myReactions.includes(type);
+                const emoji = { fire: "\u{1F525}", heart: "\u{2764}\u{FE0F}", thinking: "\u{1F914}", clap: "\u{1F44F}" };
+                return (
+                  <button
+                    key={type}
+                    className={`reaction-btn ${isReacted ? "reaction-btn--active" : ""}`}
+                    type="button"
+                    onClick={() => handleReaction(type)}
+                    disabled={isReacted}
+                  >
+                    {emoji[type]}
+                    <span className="reaction-btn__count">{article.reactions[type]}</span>
+                  </button>
+                );
+              })}
             </div>
           </footer>
         </article>

@@ -36,6 +36,23 @@ export const reactions = sqliteTable(
   ]
 );
 
+export const reactionLogs = sqliteTable(
+  "reaction_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    visitorId: text("visitor_id").notNull(),
+    articleId: text("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    reactionType: text("reaction_type", { enum: ["fire", "heart", "thinking", "clap"] }).notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("reaction_logs_visitor_article_type").on(table.visitorId, table.articleId, table.reactionType),
+    index("idx_reaction_logs_article").on(table.articleId),
+  ]
+);
+
 export const media = sqliteTable("media", {
   id: text("id").primaryKey(),
   filename: text("filename").notNull(),

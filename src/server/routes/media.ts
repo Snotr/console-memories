@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { mediaRepository } from "../db/media.repository.ts";
 import { config } from "../../config.ts";
 import { join } from "path";
+import { requireAuth } from "../middleware/auth.ts";
 
 // Allowed file types
 const ALLOWED_IMAGE_TYPES = [
@@ -44,7 +45,10 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   // Upload file
   .post(
     "/upload",
-    async ({ body, set }) => {
+    async ({ body, request, set }) => {
+      const authError = requireAuth(request, set);
+      if (authError) return authError;
+
       const file = body.file;
 
       // Validate file type
@@ -132,7 +136,10 @@ export const mediaRoutes = new Elysia({ prefix: "/api/media" })
   })
 
   // Delete file
-  .delete("/:id", async ({ params, set }) => {
+  .delete("/:id", async ({ params, request, set }) => {
+    const authError = requireAuth(request, set);
+    if (authError) return authError;
+
     const media = mediaRepository.getById(params.id);
 
     if (!media) {

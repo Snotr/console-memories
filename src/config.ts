@@ -106,6 +106,13 @@ export const config = {
     socials: buildSocialLinks(),
   },
 
+  // Authentication
+  auth: {
+    token: env("AUTH_TOKEN", ""),
+    cookieName: "cm_auth",
+    cookieMaxAge: 30 * 24 * 60 * 60, // 30 days in seconds
+  },
+
   // Security
   security: {
     // Max content lengths
@@ -124,7 +131,9 @@ export const config = {
 export function validateConfig(): void {
   // Add any required validation here
   if (config.isProd) {
-    // Production-specific validations
+    if (!config.auth.token) {
+      console.warn("Warning: AUTH_TOKEN is not set — admin endpoints are unprotected");
+    }
     if (!config.cors.origin && config.cors.enabled) {
       console.warn("Warning: CORS is enabled but no origin is set");
     }

@@ -7,6 +7,8 @@ import { About } from "./pages/About.tsx";
 import { Article } from "./pages/Article.tsx";
 import { NewArticle } from "./pages/NewArticle.tsx";
 import { EditArticle } from "./pages/EditArticle.tsx";
+import { Login } from "./pages/Login.tsx";
+import { useAuth } from "./hooks/useAuth.ts";
 import type { Profile } from "../shared/types.ts";
 import "./styles/main.css";
 
@@ -15,12 +17,14 @@ type Route =
   | { type: "about" }
   | { type: "new" }
   | { type: "article"; slug: string }
-  | { type: "edit"; slug: string };
+  | { type: "edit"; slug: string }
+  | { type: "login" };
 
 function getRoute(): Route {
   const path = window.location.pathname;
   if (path === "/about") return { type: "about" };
   if (path === "/new") return { type: "new" };
+  if (path === "/login") return { type: "login" };
   if (path.startsWith("/edit/")) {
     const slug = path.replace("/edit/", "");
     return { type: "edit", slug };
@@ -36,6 +40,7 @@ function App() {
   const [route, setRoute] = useState<Route>(getRoute());
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const { isAuthenticated, loading: authLoading, checkAuth, logout } = useAuth();
 
   useEffect(() => {
     fetch("/api/profile")
@@ -76,22 +81,29 @@ function App() {
 
   const renderPage = () => {
     switch (route.type) {
+      case "login":
+        return <Login onLogin={checkAuth} />;
       case "about":
         return <About />;
       case "new":
-        return <NewArticle />;
+        return <NewArticle isAuthenticated={isAuthenticated} />;
       case "edit":
-        return <EditArticle slug={route.slug} />;
+        return <EditArticle slug={route.slug} isAuthenticated={isAuthenticated} />;
       case "article":
-        return <Article slug={route.slug} />;
+        return <Article slug={route.slug} isAuthenticated={isAuthenticated} />;
       default:
-        return <Home />;
+        return <Home isAuthenticated={isAuthenticated} />;
     }
   };
 
   return (
     <>
-      <Header socials={profile?.socials} currentPath={currentPath} />
+      <Header
+        socials={profile?.socials}
+        currentPath={currentPath}
+        isAuthenticated={isAuthenticated}
+        onLogout={logout}
+      />
       {renderPage()}
       <Footer socials={profile?.socials} />
     </>
