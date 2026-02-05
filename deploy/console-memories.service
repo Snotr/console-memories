@@ -1,0 +1,16 @@
+[Unit]
+Description=Console Memories Blog
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/console-memories
+ExecStart=/home/pi/.bun/bin/bun run src/server/index.ts
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+EnvironmentFile=/home/pi/console-memories/.env.production
+
+[Install]
+WantedBy=multi-user.target

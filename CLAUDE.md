@@ -104,3 +104,59 @@ bun --hot ./index.ts
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+
+
+# Project Specification
+
+## Overview
+Personal blog application for publishing articles with owner-only write access and public read access.
+
+## Architecture
+- **Application Type**: Single Page Application (SPA)
+- **Backend**: TypeScript with ElysiaJS
+- **Frontend**: TypeScript
+- **Runtime**: Bun (build, test, execution)
+
+## Design & UI
+- **Typography**: Monospace font (Consolas or similar terminal-style font)
+- **Theme**: Dark mode only - grayscale palette with beige accents
+- **Style**: Minimalist console-aesthetic with simple button designs
+- **Performance**: Optimized for fast load times and rendering
+- **Responsive**: Mobile-first design approach - prioritize mobile layout, enhance for desktop
+
+## Security
+- **All changes must be reviewed for security vulnerabilities** (XSS, injection, CSRF, etc.)
+- Sanitize all user input before rendering as HTML
+- Never use `dangerouslySetInnerHTML` with unsanitized content
+- Validate and sanitize markdown content on the server before storing
+- Use Content Security Policy headers where applicable
+
+## Authentication & Authorization
+- **Owner Access**: Full CRUD operations on articles
+- **Public Access**: Read-only mode with emoji reactions
+- **Auth Implementation**: TBD - determine owner identification method (session, token, etc.)
+
+## Data Layer
+- **Database**: TBD - evaluate if persistent storage is required or if file-based content is sufficient
+
+## Deployment & Infrastructure
+- **Deployment**: Streamlined deployment process (evaluate Docker if complexity justifies it)
+- **CI/CD**: Automated testing and deployment pipeline
+- **Testing**: Unit tests for both backend and frontend components
+
+## Features
+
+### 1. Home Page
+- Display recent articles in reverse chronological order
+- Owner-only: Floating "+" button for creating new posts
+
+### 2. About Page
+- Styled profile card with personal information
+
+### 3. Social Links
+- Display social media links (GitHub, Telegram, etc.) in header and footer
+
+## Technical Decisions Needed
+- [ ] Owner authentication mechanism
+- [ ] Database requirement (persistent DB vs flat files)
+- [ ] Docker containerization necessity

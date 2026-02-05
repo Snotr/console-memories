@@ -1,0 +1,231 @@
+import { Elysia, t } from "elysia";
+import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
+import type { Article, Reactions } from "../../shared/types.ts";
+import { config } from "../../config.ts";
+import { articlesRepository } from "../db/articles.repository.ts";
+
+// Configure marked
+marked.setOptions({
+  gfm: true,
+  breaks: true,
+});
+
+// Configure DOMPurify - allow safe HTML elements including images/videos
+const sanitizeConfig = {
+  ALLOWED_TAGS: [
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p", "br", "hr",
+    "ul", "ol", "li",
+    "blockquote", "pre", "code",
+    "strong", "em", "b", "i", "u", "s", "del",
+    "a", "img", "video", "source",
+    "table", "thead", "tbody", "tr", "th", "td",
+    "div", "span", "figure", "figcaption",
+  ],
+  ALLOWED_ATTR: [
+    "href", "src", "alt", "title", "class",
+    "target", "rel", "width", "height",
+    "controls", "autoplay", "loop", "muted", "poster",
+    "type", // for video source
+  ],
+  // Force safe link behavior
+  ADD_ATTR: ["target", "rel"],
+  // Allow our uploads and external https images
+  ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto):|\/uploads\/|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+};
+
+// Constants for input validation (from config)
+const MAX_TITLE_LENGTH = config.security.maxTitleLength;
+const MAX_CONTENT_LENGTH = config.security.maxContentLength;
+
+// Helper: Generate unique slug
+function generateSlug(title: string, existingId?: string): string {
+  const baseSlug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/(^-|-$)/g, "");
+
+  // Check for uniqueness
+  let slug = baseSlug;
+  let counter = 1;
+
+  while (articlesRepository.slugExists(slug, existingId || "")) {
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+
+  return slug;
+}
+
+// Helper: Generate excerpt from markdown
+function generateExcerpt(markdown: string): string {
+  const plainText = markdown
+    .replace(/#{1,6}\s/g, "")
+    .replace(/\*\*|__/g, "")
+    .replace(/\*|_/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/!\[[^\]]*\]\([^)]+\)/g, "") // Remove images
+    .replace(/\n+/g, " ")
+    .trim();
+
+  if (plainText.length <= 150) return plainText;
+  return plainText.substring(0, 150).replace(/\s+\S*$/, "") + "...";
+}
+
+// Helper: Compile markdown to HTML (with sanitization)
+function compileMarkdown(content: string): string {
+  const rawHtml = marked.parse(content) as string;
+  const cleanHtml = DOMPurify.sanitize(rawHtml, sanitizeConfig);
+  return cleanHtml;
+}
+
+// Helper: Validate and clean text input
+function validateText(text: string, maxLength: number): string {
+  const cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "").trim();
+  return cleaned.slice(0, maxLength);
+}
+
+export const articleRoutes = new Elysia({ prefix: "/api/articles" })
+  // GET /api/articles - List all articles
+  .get("/", () => {
+    return articlesRepository.getAll();
+  })
+
+  // GET /api/articles/:slug - Get single article by slug
+  .get("/:slug", ({ params, set }) => {
+    const article = articlesRepository.getBySlug(params.slug);
+    if (!article) {
+      set.status = 404;
+      return { error: "Article not found" };
+    }
+    return article;
+  })
+
+  // POST /api/articles - Create new article
+  .post(
+    "/",
+    ({ body, set }) => {
+      const title = validateText(body.title, MAX_TITLE_LENGTH);
+      const content = validateText(body.content, MAX_CONTENT_LENGTH);
+
+      if (!title || !content) {
+        set.status = 400;
+        return { error: "Title and content are required" };
+      }
+
+      const id = crypto.randomUUID();
+      const slug = generateSlug(title);
+      const contentHtml = compileMarkdown(content);
+      const excerpt = generateExcerpt(content);
+
+      const article = articlesRepository.create({
+        id,
+        slug,
+        title,
+        content,
+        contentHtml,
+        excerpt,
+        featured: body.featured ?? false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      set.status = 201;
+      return article;
+    },
+    {
+      body: t.Object({
+        title: t.String({ minLength: 1, maxLength: MAX_TITLE_LENGTH }),
+        content: t.String({ minLength: 1, maxLength: MAX_CONTENT_LENGTH }),
+        featured: t.Optional(t.Boolean()),
+      }),
+    }
+  )
+
+  // PUT /api/articles/:id - Update article by ID
+  .put(
+    "/:id",
+    ({ params, body, set }) => {
+      const existing = articlesRepository.getById(params.id);
+      if (!existing) {
+        set.status = 404;
+        return { error: "Article not found" };
+      }
+
+      const newTitle = body.title
+        ? validateText(body.title, MAX_TITLE_LENGTH)
+        : existing.title;
+      const newContent = body.content
+        ? validateText(body.content, MAX_CONTENT_LENGTH)
+        : existing.content;
+
+      if (body.title && !newTitle) {
+        set.status = 400;
+        return { error: "Title cannot be empty" };
+      }
+      if (body.content && !newContent) {
+        set.status = 400;
+        return { error: "Content cannot be empty" };
+      }
+
+      const newSlug = body.title ? generateSlug(newTitle, params.id) : existing.slug;
+
+      const updated = articlesRepository.update(params.id, {
+        title: newTitle,
+        slug: newSlug,
+        content: newContent,
+        contentHtml: body.content ? compileMarkdown(newContent) : undefined,
+        excerpt: body.content ? generateExcerpt(newContent) : undefined,
+        featured: body.featured,
+      });
+
+      return updated;
+    },
+    {
+      body: t.Object({
+        title: t.Optional(t.String({ minLength: 1, maxLength: MAX_TITLE_LENGTH })),
+        content: t.Optional(t.String({ minLength: 1, maxLength: MAX_CONTENT_LENGTH })),
+        featured: t.Optional(t.Boolean()),
+      }),
+    }
+  )
+
+  // DELETE /api/articles/:id - Delete article by ID
+  .delete("/:id", ({ params, set }) => {
+    const deleted = articlesRepository.delete(params.id);
+    if (!deleted) {
+      set.status = 404;
+      return { error: "Article not found" };
+    }
+    set.status = 204;
+    return null;
+  })
+
+  // POST /api/articles/:id/reactions - Add reaction
+  .post(
+    "/:id/reactions",
+    ({ params, body, set }) => {
+      const reaction = body.type as keyof Reactions;
+      if (!["fire", "heart", "thinking", "clap"].includes(reaction)) {
+        set.status = 400;
+        return { error: "Invalid reaction type" };
+      }
+
+      const reactions = articlesRepository.addReaction(params.id, reaction);
+      if (!reactions) {
+        set.status = 404;
+        return { error: "Article not found" };
+      }
+
+      return { reactions };
+    },
+    {
+      body: t.Object({
+        type: t.String(),
+      }),
+    }
+  );
