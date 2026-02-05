@@ -307,8 +307,30 @@ p {
   background: var(--bg-tertiary);
 }
 
+.reaction-btn--active {
+  border-color: var(--accent-muted);
+  background: var(--accent-dim);
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.reaction-btn--active:hover,
+.reaction-btn--active:active {
+  border-color: var(--accent-muted);
+  background: var(--accent-dim);
+}
+
+.reaction-btn:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
 .reaction-btn__count {
   color: var(--text-muted);
+}
+
+.reaction-btn--active .reaction-btn__count {
+  color: var(--accent);
 }
 
 /* Read more link */

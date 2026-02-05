@@ -1,8 +1,14 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { Elysia } from "elysia";
 
-// Set test database before importing routes
+// Set test environment before importing routes
 process.env.DATABASE_PATH = ":memory:";
+process.env.AUTH_TOKEN = "test-token";
+
+const authHeaders = {
+  "Content-Type": "application/json",
+  Authorization: "Bearer test-token",
+};
 
 // Now import after setting env
 const { articleRoutes } = await import("../routes/articles.ts");
@@ -29,7 +35,7 @@ describe("Articles API", () => {
       await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "List Test Article",
             content: "# Content\n\nFull content here.",
@@ -52,7 +58,7 @@ describe("Articles API", () => {
       await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Non Featured",
             content: "Content",
@@ -65,7 +71,7 @@ describe("Articles API", () => {
       await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Featured Article",
             content: "Content",
@@ -97,7 +103,7 @@ describe("Articles API", () => {
       const res = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Test Article Create",
             content: "# Test\n\nThis is a test.",
@@ -117,7 +123,7 @@ describe("Articles API", () => {
       const res = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "",
             content: "Some content",
@@ -132,7 +138,7 @@ describe("Articles API", () => {
       const res = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Title",
             content: "",
@@ -147,7 +153,7 @@ describe("Articles API", () => {
       const res1 = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Duplicate Title Test",
             content: "Content 1",
@@ -159,7 +165,7 @@ describe("Articles API", () => {
       const res2 = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Duplicate Title Test",
             content: "Content 2",
@@ -170,6 +176,21 @@ describe("Articles API", () => {
 
       expect(data1.slug).not.toBe(data2.slug);
     });
+
+    test("rejects unauthenticated requests", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: "Unauth Test",
+            content: "Content",
+          }),
+        })
+      );
+
+      expect(res.status).toBe(401);
+    });
   });
 
   describe("GET /api/articles/:slug", () => {
@@ -177,7 +198,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Full Content Test",
             content: "# Full\n\nThis is the full content.",
@@ -210,7 +231,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "To Delete Test",
             content: "Will be deleted.",
@@ -222,6 +243,7 @@ describe("Articles API", () => {
       const deleteRes = await app.handle(
         new Request(`http://localhost/api/articles/${created.id}`, {
           method: "DELETE",
+          headers: { Authorization: "Bearer test-token" },
         })
       );
 
@@ -237,10 +259,21 @@ describe("Articles API", () => {
       const res = await app.handle(
         new Request("http://localhost/api/articles/non-existent-id", {
           method: "DELETE",
+          headers: { Authorization: "Bearer test-token" },
         })
       );
 
       expect(res.status).toBe(404);
+    });
+
+    test("rejects unauthenticated delete", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles/some-id", {
+          method: "DELETE",
+        })
+      );
+
+      expect(res.status).toBe(401);
     });
   });
 
@@ -249,7 +282,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Original Title Update",
             content: "Original content.",
@@ -261,7 +294,7 @@ describe("Articles API", () => {
       const updateRes = await app.handle(
         new Request(`http://localhost/api/articles/${created.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Updated Title Here",
           }),
@@ -279,7 +312,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Feature Test Article",
             content: "Content",
@@ -293,7 +326,7 @@ describe("Articles API", () => {
       const updateRes = await app.handle(
         new Request(`http://localhost/api/articles/${created.id}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             featured: true,
           }),
@@ -310,7 +343,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Reaction Test Article",
             content: "Content",
@@ -337,7 +370,7 @@ describe("Articles API", () => {
       const createRes = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             title: "Invalid Reaction Test Article",
             content: "Content",

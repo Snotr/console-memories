@@ -54,6 +54,11 @@ function initializeReactions(articleId: string): void {
 
 // Repository functions
 export const articlesRepository = {
+  // Expose getReactions publicly
+  getReactions(articleId: string): Reactions {
+    return getReactionsForArticle(articleId);
+  },
+
   // Get all articles (without full content)
   getAll(): Omit<Article, "content" | "contentHtml">[] {
     const rows = db

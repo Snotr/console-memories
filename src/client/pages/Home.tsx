@@ -5,7 +5,11 @@ import type { Article, Reactions } from "../../shared/types.ts";
 // List view excludes content/contentHtml
 type ArticleListItem = Omit<Article, "content" | "contentHtml">;
 
-export function Home() {
+interface HomeProps {
+  isAuthenticated?: boolean;
+}
+
+export function Home({ isAuthenticated }: HomeProps) {
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,9 +101,11 @@ export function Home() {
           )}
         </section>
 
-        <a href="/new" className="fab" title="New post">
-          +
-        </a>
+        {isAuthenticated && (
+          <a href="/new" className="fab" title="New post">
+            +
+          </a>
+        )}
       </div>
     </main>
   );
