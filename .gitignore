@@ -17,6 +17,8 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # dotenv environment variable files
 .env
+.env.development
+.env.production
 .env.development.local
 .env.test.local
 .env.production.local
@@ -32,3 +34,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Database
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# Uploads (keep directory structure)
+uploads/*
+!uploads/.gitkeep
