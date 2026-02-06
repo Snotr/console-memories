@@ -28,9 +28,10 @@ marked.setOptions({
 const YOUTUBE_VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
 
 // Match standalone YouTube URLs on their own line (not inside markdown links)
-// Captures: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID
+// Captures: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID,
+//           youtube.com/shorts/ID, youtube.com/live/ID, m.youtube.com/...
 const YOUTUBE_URL_LINE_RE =
-  /^(?!\s*\[.*\]\()(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/)([\w-]{11})(?:[&?][\w=&%.+-]*)?$/gm;
+  /^(?!\s*\[.*\]\()(?:https?:\/\/)?(?:(?:www|m)\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})(?:[&?][\w=&%.+-]*)?$/gm;
 
 // Helper: Convert standalone YouTube URLs into embed placeholders
 function convertYouTubeUrls(markdown: string): string {
@@ -106,12 +107,29 @@ function generateExcerpt(markdown: string): string {
   return plainText.substring(0, 150).replace(/\s+\S*$/, "") + "...";
 }
 
+// Helper: Convert sanitised YouTube-embed placeholders into actual iframes.
+// Runs AFTER DOMPurify so user-provided iframes are still stripped while our
+// embeds come through safely.
+function embedYouTubeIframes(html: string): string {
+  return html.replace(
+    /<div class="youtube-embed" data-video-id="([a-zA-Z0-9_-]{11})"><\/div>/g,
+    (_, videoId: string) =>
+      `<div class="youtube-embed"><div class="youtube-embed__wrapper">` +
+      `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}" ` +
+      `title="YouTube video" allowfullscreen ` +
+      `sandbox="allow-scripts allow-same-origin allow-presentation" ` +
+      `loading="lazy" ` +
+      `style="position:absolute;top:0;left:0;width:100%;height:100%;border:none">` +
+      `</iframe></div></div>`,
+  );
+}
+
 // Helper: Compile markdown to HTML (with sanitization)
 function compileMarkdown(content: string): string {
   const withEmbeds = convertYouTubeUrls(content);
   const rawHtml = marked.parse(withEmbeds) as string;
   const cleanHtml = DOMPurify.sanitize(rawHtml, sanitizeConfig);
-  return cleanHtml;
+  return embedYouTubeIframes(cleanHtml);
 }
 
 // Helper: Validate and clean text input
@@ -132,6 +150,10 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
     if (!article) {
       set.status = 404;
       return { error: "Article not found" };
+    }
+    // Ensure legacy articles get YouTube iframes (previously stored as placeholders only)
+    if (article.contentHtml && !article.contentHtml.includes("<iframe")) {
+      article.contentHtml = embedYouTubeIframes(article.contentHtml);
     }
     return article;
   })

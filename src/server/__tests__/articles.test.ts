@@ -333,7 +333,7 @@ describe("Articles API", () => {
   });
 
   describe("YouTube embed conversion", () => {
-    test("converts standalone YouTube URL to embed placeholder", async () => {
+    test("converts standalone YouTube URL to embed iframe", async () => {
       const res = await app.handle(
         new Request("http://localhost/api/articles", {
           method: "POST",
@@ -348,7 +348,7 @@ describe("Articles API", () => {
 
       expect(res.status).toBe(201);
       expect(data.contentHtml).toContain('class="youtube-embed"');
-      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
       expect(data.contentHtml).toContain("Check this video");
       expect(data.contentHtml).toContain("Great stuff");
     });
@@ -366,7 +366,7 @@ describe("Articles API", () => {
       );
       const data = await res.json();
 
-      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
     });
 
     test("converts youtube.com/embed URLs", async () => {
@@ -382,7 +382,7 @@ describe("Articles API", () => {
       );
       const data = await res.json();
 
-      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
     });
 
     test("handles multiple YouTube URLs in one article", async () => {
@@ -398,8 +398,8 @@ describe("Articles API", () => {
       );
       const data = await res.json();
 
-      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
-      expect(data.contentHtml).toContain('data-video-id="jNQXAC9IVRw"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/jNQXAC9IVRw"');
     });
 
     test("preserves YouTube URLs inside markdown links", async () => {
@@ -432,7 +432,55 @@ describe("Articles API", () => {
       );
       const data = await res.json();
 
-      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    });
+
+    test("converts mobile m.youtube.com URLs", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Mobile Test",
+            content: "https://m.youtube.com/watch?v=dQw4w9WgXcQ",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    });
+
+    test("converts YouTube Shorts URLs", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Shorts Test",
+            content: "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    });
+
+    test("converts YouTube live URLs", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Live Test",
+            content: "https://www.youtube.com/live/dQw4w9WgXcQ",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
     });
   });
 

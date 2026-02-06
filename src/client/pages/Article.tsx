@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import type { Article as ArticleType, Reactions } from "../../shared/types.ts";
 
 interface ArticleProps {
@@ -14,41 +14,6 @@ export function Article({ slug, isAuthenticated }: ArticleProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [myReactions, setMyReactions] = useState<string[]>([]);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // Hydrate YouTube embed placeholders into iframes
-  const hydrateYouTubeEmbeds = useCallback(() => {
-    const container = contentRef.current;
-    if (!container) return;
-
-    const VALID_ID = /^[a-zA-Z0-9_-]{11}$/;
-    for (const el of container.querySelectorAll<HTMLElement>(".youtube-embed")) {
-      const videoId = el.dataset.videoId;
-      if (!videoId || !VALID_ID.test(videoId)) continue;
-      // Skip already-hydrated embeds
-      if (el.querySelector("iframe")) continue;
-
-      const wrapper = document.createElement("div");
-      wrapper.className = "youtube-embed__wrapper";
-
-      const iframe = document.createElement("iframe");
-      iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}`;
-      iframe.title = "YouTube video";
-      iframe.setAttribute("allowfullscreen", "");
-      iframe.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
-      iframe.setAttribute("loading", "lazy");
-      iframe.style.position = "absolute";
-      iframe.style.top = "0";
-      iframe.style.left = "0";
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "none";
-
-      wrapper.appendChild(iframe);
-      el.innerHTML = "";
-      el.appendChild(wrapper);
-    }
-  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -76,11 +41,6 @@ export function Article({ slug, isAuthenticated }: ArticleProps) {
         }
       });
   }, [slug]);
-
-  // Hydrate YouTube embeds after article content renders
-  useEffect(() => {
-    if (article) hydrateYouTubeEmbeds();
-  }, [article, hydrateYouTubeEmbeds]);
 
   const handleReaction = async (reaction: keyof Reactions) => {
     if (!article || myReactions.includes(reaction)) return;
@@ -231,7 +191,6 @@ export function Article({ slug, isAuthenticated }: ArticleProps) {
           </header>
 
           <div
-            ref={contentRef}
             className="article__content markdown-body"
             dangerouslySetInnerHTML={{ __html: article.contentHtml }}
           />

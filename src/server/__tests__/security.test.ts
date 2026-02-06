@@ -186,7 +186,7 @@ code block
     expect(data.contentHtml).toContain('href="https://example.com"');
   });
 
-  test("YouTube embed produces safe data attribute, not raw iframe", async () => {
+  test("YouTube embed produces sandboxed iframe from youtube-nocookie.com", async () => {
     const res = await app.handle(
       new Request("http://localhost/api/articles", {
         method: "POST",
@@ -199,9 +199,9 @@ code block
     );
     const data = await res.json();
 
-    expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
     expect(data.contentHtml).toContain('class="youtube-embed"');
-    expect(data.contentHtml).not.toContain("<iframe");
+    expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
+    expect(data.contentHtml).toContain('sandbox="allow-scripts allow-same-origin allow-presentation"');
   });
 
   test("rejects YouTube-like URLs with invalid video IDs", async () => {
@@ -235,9 +235,9 @@ code block
     );
     const data = await res.json();
 
-    expect(data.contentHtml).not.toContain("<iframe");
     expect(data.contentHtml).not.toContain("evil.com");
-    expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+    // Our YouTube iframe is present
+    expect(data.contentHtml).toContain('src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"');
   });
 
   test("sanitizes injection attempt via crafted YouTube-like URL", async () => {
