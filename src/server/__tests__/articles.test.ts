@@ -1,18 +1,12 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { Elysia } from "elysia";
-
-// Set test environment before importing routes
-process.env.DATABASE_PATH = ":memory:";
-process.env.AUTH_TOKEN = "test-token";
+import { articleRoutes } from "../routes/articles.ts";
+import { runMigrations } from "../db/connection.ts";
 
 const authHeaders = {
   "Content-Type": "application/json",
   Authorization: "Bearer test-token",
 };
-
-// Now import after setting env
-const { articleRoutes } = await import("../routes/articles.ts");
-const { runMigrations } = await import("../db/connection.ts");
 
 const app = new Elysia().use(articleRoutes);
 
@@ -335,6 +329,110 @@ describe("Articles API", () => {
       const updated = await updateRes.json();
 
       expect(updated.featured).toBe(true);
+    });
+  });
+
+  describe("YouTube embed conversion", () => {
+    test("converts standalone YouTube URL to embed placeholder", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Embed Test",
+            content: "Check this video:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\nGreat stuff!",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(data.contentHtml).toContain('class="youtube-embed"');
+      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain("Check this video");
+      expect(data.contentHtml).toContain("Great stuff");
+    });
+
+    test("converts youtu.be short URLs", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Short URL Test",
+            content: "https://youtu.be/dQw4w9WgXcQ",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+    });
+
+    test("converts youtube.com/embed URLs", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Embed URL Test",
+            content: "https://www.youtube.com/embed/dQw4w9WgXcQ",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+    });
+
+    test("handles multiple YouTube URLs in one article", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "Multiple YouTube Test",
+            content: "First:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\nSecond:\n\nhttps://youtu.be/jNQXAC9IVRw",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+      expect(data.contentHtml).toContain('data-video-id="jNQXAC9IVRw"');
+    });
+
+    test("preserves YouTube URLs inside markdown links", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Link Test",
+            content: "[Watch this](https://www.youtube.com/watch?v=dQw4w9WgXcQ)",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).not.toContain('class="youtube-embed"');
+      expect(data.contentHtml).toContain("href=");
+    });
+
+    test("handles YouTube URLs with extra query params", async () => {
+      const res = await app.handle(
+        new Request("http://localhost/api/articles", {
+          method: "POST",
+          headers: authHeaders,
+          body: JSON.stringify({
+            title: "YouTube Params Test",
+            content: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42&list=PLtest",
+          }),
+        })
+      );
+      const data = await res.json();
+
+      expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
     });
   });
 

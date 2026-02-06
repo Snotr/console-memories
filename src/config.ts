@@ -113,11 +113,21 @@ export const config = {
     cookieMaxAge: 30 * 24 * 60 * 60, // 30 days in seconds
   },
 
+  // Visitor tracking
+  visitor: {
+    cookieName: "cm_visitor",
+    cookieMaxAge: envInt("VISITOR_COOKIE_MAX_AGE", 180 * 24 * 60 * 60), // 180 days in seconds
+  },
+
   // Security
   security: {
     // Max content lengths
     maxTitleLength: envInt("MAX_TITLE_LENGTH", 200),
     maxContentLength: envInt("MAX_CONTENT_LENGTH", 100000),
+    // Max upload sizes (bytes)
+    maxImageSize: envInt("MAX_IMAGE_SIZE", 5 * 1024 * 1024),      // 5MB
+    maxVideoSize: envInt("MAX_VIDEO_SIZE", 50 * 1024 * 1024),     // 50MB
+    maxBodySize: envInt("MAX_BODY_SIZE", 52 * 1024 * 1024),       // 52MB (slightly above maxVideoSize for multipart overhead)
   },
 
   // Paths (configurable via env vars for deployment)

@@ -1,17 +1,12 @@
 import { describe, test, expect, beforeAll } from "bun:test";
 import { Elysia } from "elysia";
-
-// Set test environment before importing routes
-process.env.DATABASE_PATH = ":memory:";
-process.env.AUTH_TOKEN = "test-token";
+import { articleRoutes } from "../routes/articles.ts";
+import { runMigrations } from "../db/connection.ts";
 
 const authHeaders = {
   "Content-Type": "application/json",
   Authorization: "Bearer test-token",
 };
-
-const { articleRoutes } = await import("../routes/articles.ts");
-const { runMigrations } = await import("../db/connection.ts");
 
 const app = new Elysia().use(articleRoutes);
 
@@ -189,6 +184,77 @@ code block
     expect(data.contentHtml).toContain("<code>");
     expect(data.contentHtml).toContain("<pre>");
     expect(data.contentHtml).toContain('href="https://example.com"');
+  });
+
+  test("YouTube embed produces safe data attribute, not raw iframe", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/articles", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          title: "YouTube Safe Embed Test",
+          content: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        }),
+      })
+    );
+    const data = await res.json();
+
+    expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+    expect(data.contentHtml).toContain('class="youtube-embed"');
+    expect(data.contentHtml).not.toContain("<iframe");
+  });
+
+  test("rejects YouTube-like URLs with invalid video IDs", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/articles", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          title: "YouTube Bad ID Test",
+          content: 'https://www.youtube.com/watch?v="><script>alert(1)</script>',
+        }),
+      })
+    );
+    const data = await res.json();
+
+    expect(data.contentHtml).not.toContain('class="youtube-embed"');
+    expect(data.contentHtml).not.toContain("<script>");
+    expect(data.contentHtml).not.toContain("alert");
+  });
+
+  test("still removes non-YouTube iframes after YouTube embed support", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/articles", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          title: "Non-YouTube Iframe Test",
+          content: '<iframe src="https://evil.com/hack"></iframe>\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        }),
+      })
+    );
+    const data = await res.json();
+
+    expect(data.contentHtml).not.toContain("<iframe");
+    expect(data.contentHtml).not.toContain("evil.com");
+    expect(data.contentHtml).toContain('data-video-id="dQw4w9WgXcQ"');
+  });
+
+  test("sanitizes injection attempt via crafted YouTube-like URL", async () => {
+    const res = await app.handle(
+      new Request("http://localhost/api/articles", {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          title: "YouTube Injection Test",
+          content: '<div class="youtube-embed" data-video-id="dQw4w9WgXcQ" onclick="alert(1)"></div>',
+        }),
+      })
+    );
+    const data = await res.json();
+
+    expect(data.contentHtml).not.toContain("onclick");
+    expect(data.contentHtml).not.toContain("alert");
   });
 
   test("allows images from uploads", async () => {

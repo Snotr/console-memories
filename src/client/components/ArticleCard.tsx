@@ -9,11 +9,19 @@ interface ArticleCardProps {
 }
 
 export function ArticleCard({ article, onReact }: ArticleCardProps) {
-  const date = new Date(article.createdAt).toLocaleDateString("en-US", {
+  const createdDate = new Date(article.createdAt).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+
+  const updatedDate = new Date(article.updatedAt).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+  const wasUpdated = createdDate !== updatedDate;
 
   const handleReaction = (e: React.MouseEvent, reaction: keyof Reactions) => {
     e.preventDefault();
@@ -38,7 +46,10 @@ export function ArticleCard({ article, onReact }: ArticleCardProps) {
           <span className="article-card__featured-badge">* featured</span>
         )}
       </div>
-      <p className="article-card__meta">{date}</p>
+      <p className="article-card__meta">
+        {createdDate}
+        {wasUpdated && <span className="article-card__updated"> (updated {updatedDate})</span>}
+      </p>
       <p className="article-card__excerpt">{article.excerpt}</p>
       <div className="article-card__footer">
         <div className="reactions">
