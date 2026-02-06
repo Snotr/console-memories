@@ -655,6 +655,20 @@ p {
   background: var(--bg-tertiary);
 }
 
+.markdown-body .youtube-embed {
+  margin: var(--space-md) 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.markdown-body .youtube-embed__wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+}
+
 .markdown-body figure {
   margin: var(--space-lg) 0;
 }

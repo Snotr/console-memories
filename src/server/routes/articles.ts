@@ -24,6 +24,22 @@ marked.setOptions({
   breaks: true,
 });
 
+// YouTube video ID: exactly 11 alphanumeric, hyphen, or underscore characters
+const YOUTUBE_VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
+
+// Match standalone YouTube URLs on their own line (not inside markdown links)
+// Captures: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID
+const YOUTUBE_URL_LINE_RE =
+  /^(?!\s*\[.*\]\()(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/)([\w-]{11})(?:[&?][\w=&%.+-]*)?$/gm;
+
+// Helper: Convert standalone YouTube URLs into embed placeholders
+function convertYouTubeUrls(markdown: string): string {
+  return markdown.replace(YOUTUBE_URL_LINE_RE, (_match, videoId: string) => {
+    if (!YOUTUBE_VIDEO_ID_RE.test(videoId)) return _match;
+    return `<div class="youtube-embed" data-video-id="${videoId}"></div>`;
+  });
+}
+
 // Configure DOMPurify - allow safe HTML elements including images/videos
 const sanitizeConfig = {
   ALLOWED_TAGS: [
@@ -41,6 +57,7 @@ const sanitizeConfig = {
     "target", "rel", "width", "height",
     "controls", "autoplay", "loop", "muted", "poster",
     "type", // for video source
+    "data-video-id", // for YouTube embed placeholders
   ],
   // Force safe link behavior
   ADD_ATTR: ["target", "rel"],
@@ -91,7 +108,8 @@ function generateExcerpt(markdown: string): string {
 
 // Helper: Compile markdown to HTML (with sanitization)
 function compileMarkdown(content: string): string {
-  const rawHtml = marked.parse(content) as string;
+  const withEmbeds = convertYouTubeUrls(content);
+  const rawHtml = marked.parse(withEmbeds) as string;
   const cleanHtml = DOMPurify.sanitize(rawHtml, sanitizeConfig);
   return cleanHtml;
 }

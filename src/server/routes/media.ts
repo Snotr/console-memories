@@ -21,9 +21,9 @@ const ALLOWED_VIDEO_TYPES = [
 
 const ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES];
 
-// Max file sizes (in bytes)
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;  // 5MB
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
+// Max file sizes from config (in bytes)
+const MAX_IMAGE_SIZE = config.security.maxImageSize;
+const MAX_VIDEO_SIZE = config.security.maxVideoSize;
 
 // Upload directory from config
 const UPLOAD_DIR = config.paths.uploads;

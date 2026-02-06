@@ -34,6 +34,7 @@ const securityHeaders = {
     "media-src 'self' blob:",
     "font-src 'self'",
     "connect-src 'self'",
+    "frame-src https://www.youtube-nocookie.com",
     "frame-ancestors 'none'",
   ].join("; "),
 };
@@ -52,12 +53,12 @@ const api = new Elysia()
 
     // Ensure cm_visitor cookie exists for reaction idempotency
     const cookies = request.headers.get("cookie") || "";
-    const hasVisitor = cookies.split(";").some((c) => c.trim().startsWith("cm_visitor="));
+    const hasVisitor = cookies.split(";").some((c) => c.trim().startsWith(`${config.visitor.cookieName}=`));
     if (!hasVisitor) {
       const visitorId = crypto.randomUUID();
       const secure = config.isProd ? "; Secure" : "";
       set.headers["Set-Cookie"] =
-        `cm_visitor=${visitorId}; Path=/; SameSite=Lax; Max-Age=63072000${secure}`;
+        `${config.visitor.cookieName}=${visitorId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${config.visitor.cookieMaxAge}${secure}`;
     }
   })
   .use(cors(corsConfig))
@@ -89,6 +90,7 @@ const serveUploads = async (req: Request): Promise<Response | null> => {
 Bun.serve({
   port: config.server.port,
   hostname: config.server.host,
+  maxRequestBodySize: config.security.maxBodySize,
   routes: {
     "/": index,
     "/about": index,
