@@ -49,6 +49,7 @@ export function ArticleCard({ article, onReact }: ArticleCardProps) {
       <p className="article-card__meta">
         {createdDate}
         {wasUpdated && <span className="article-card__updated"> (updated {updatedDate})</span>}
+        {article.views > 0 && <span className="article-card__views"> · {article.views} {article.views === 1 ? "view" : "views"}</span>}
       </p>
       <p className="article-card__excerpt">{article.excerpt}</p>
       <div className="article-card__footer">

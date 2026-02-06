@@ -187,6 +187,7 @@ export function Article({ slug, isAuthenticated }: ArticleProps) {
             <p className="article__meta">
               {createdDate}
               {wasUpdated && <span className="article__updated"> (updated {updatedDate})</span>}
+              {article.views > 0 && <span className="article__views"> · {article.views} {article.views === 1 ? "view" : "views"}</span>}
             </p>
           </header>
 

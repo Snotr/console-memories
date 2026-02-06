@@ -53,6 +53,37 @@ export const reactionLogs = sqliteTable(
   ]
 );
 
+export const articleViews = sqliteTable(
+  "article_views",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    articleId: text("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" })
+      .unique(),
+    count: integer("count").default(0),
+  },
+  (table) => [
+    index("idx_article_views_article").on(table.articleId),
+  ]
+);
+
+export const viewLogs = sqliteTable(
+  "view_logs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    visitorId: text("visitor_id").notNull(),
+    articleId: text("article_id")
+      .notNull()
+      .references(() => articles.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+  },
+  (table) => [
+    uniqueIndex("view_logs_visitor_article").on(table.visitorId, table.articleId),
+    index("idx_view_logs_article").on(table.articleId),
+  ]
+);
+
 export const media = sqliteTable("media", {
   id: text("id").primaryKey(),
   filename: text("filename").notNull(),
