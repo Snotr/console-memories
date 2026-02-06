@@ -5,6 +5,7 @@ import type { Article, Reactions } from "../../shared/types.ts";
 import { config } from "../../config.ts";
 import { articlesRepository } from "../db/articles.repository.ts";
 import { reactionsRepository } from "../db/reactions.repository.ts";
+import { viewsRepository } from "../db/views.repository.ts";
 import { requireAuth } from "../middleware/auth.ts";
 
 // Helper: Extract cm_visitor cookie value
@@ -145,7 +146,7 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
   })
 
   // GET /api/articles/:slug - Get single article by slug
-  .get("/:slug", ({ params, set }) => {
+  .get("/:slug", ({ params, request, set }) => {
     const article = articlesRepository.getBySlug(params.slug);
     if (!article) {
       set.status = 404;
@@ -154,6 +155,12 @@ export const articleRoutes = new Elysia({ prefix: "/api/articles" })
     // Ensure legacy articles get YouTube iframes (previously stored as placeholders only)
     if (article.contentHtml && !article.contentHtml.includes("<iframe")) {
       article.contentHtml = embedYouTubeIframes(article.contentHtml);
+    }
+    // Record unique view
+    const visitorId = getVisitorId(request);
+    if (visitorId) {
+      viewsRepository.recordView(visitorId, article.id);
+      article.views = viewsRepository.getViewCount(article.id);
     }
     return article;
   })

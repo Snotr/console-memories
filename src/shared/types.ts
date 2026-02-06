@@ -8,6 +8,7 @@ export interface Article {
   createdAt: Date;
   updatedAt: Date;
   reactions: Reactions;
+  views: number;
   featured: boolean;
 }
 

@@ -1,6 +1,7 @@
 import { eq, desc, and, ne, sql } from "drizzle-orm";
 import { db } from "./connection.ts";
 import { articles, reactions } from "./schema.ts";
+import { viewsRepository } from "./views.repository.ts";
 import type { Article, Reactions } from "../../shared/types.ts";
 
 // Helper: Convert DB row to Article type
@@ -19,6 +20,7 @@ function rowToArticle(
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
     reactions: reactionData,
+    views: viewsRepository.getViewCount(row.id),
   };
 }
 
@@ -86,6 +88,7 @@ export const articlesRepository = {
         createdAt: new Date(row.createdAt),
         updatedAt: new Date(row.updatedAt),
         reactions: reactionData,
+        views: viewsRepository.getViewCount(row.id),
       };
     });
   },
@@ -130,7 +133,7 @@ export const articlesRepository = {
   },
 
   // Create new article
-  create(article: Omit<Article, "reactions">): Article {
+  create(article: Omit<Article, "reactions" | "views">): Article {
     const now = new Date().toISOString();
 
     db.insert(articles)
@@ -147,12 +150,14 @@ export const articlesRepository = {
       })
       .run();
 
-    // Initialize reactions
+    // Initialize reactions and views
     initializeReactions(article.id);
+    viewsRepository.initializeViews(article.id);
 
     return {
       ...article,
       reactions: { fire: 0, heart: 0, thinking: 0, clap: 0 },
+      views: 0,
     };
   },
 
